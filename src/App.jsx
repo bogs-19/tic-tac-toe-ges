@@ -105,7 +105,6 @@ function Board({ xIsNext, squares, onPlay }) {
     }
   }
 
-  // LOGIKA MENGGAMBAR GARIS NEON (Sangat Tergantung CSS Variables)
   let lineStyle = {};
   if (winner && winLine.length === 5) {
     const startX = winLine[0] % 9;
@@ -129,7 +128,6 @@ function Board({ xIsNext, squares, onPlay }) {
   }
 
   return (
-    // PENTING: Gunakan board-container agar status dan papan menyatu dan centered di mobile
     <div className="board-container">
       <div style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '10px', letterSpacing: '2px' }}>{status}</div>
       {!winner && <div style={{ color: '#888', letterSpacing: '4px', fontSize: '1rem', marginBottom: '15px' }}>GET 5 IN A ROW TO WIN</div>}
@@ -137,7 +135,6 @@ function Board({ xIsNext, squares, onPlay }) {
       <div className="board-flat">
         <div className="board-grid">
           {boardUI}
-          {/* Garis kemenangan Neon muncul jika ada pemenang */}
           {winner && <div className={`winning-line ${winner}`} style={lineStyle}></div>}
         </div>
       </div>
@@ -145,14 +142,71 @@ function Board({ xIsNext, squares, onPlay }) {
   );
 }
 
+// --- LOGIKA AI (KECERDASAN BUATAN) ---
+function getAIMove(squares) {
+  // 1. Cek apakah AI (O) bisa menang di langkah ini
+  const winMove = findWinningMove(squares, 'O');
+  if (winMove !== null) return winMove;
+
+  // 2. Cek apakah Player (X) akan menang, JIKA IYA, BLOKIR!
+  const blockMove = findWinningMove(squares, 'X');
+  if (blockMove !== null) return blockMove;
+
+  // 3. Jika aman, cari titik kosong yang bersebelahan dengan bidak yang sudah ada
+  const emptyMoves = [];
+  const adjacentMoves = [];
+  
+  for (let i = 0; i < 81; i++) {
+    if (!squares[i]) {
+      emptyMoves.push(i);
+      if (hasAdjacent(squares, i)) adjacentMoves.push(i);
+    }
+  }
+
+  // Pilih secara acak dari kotak yang nempel dengan permainan
+  if (adjacentMoves.length > 0) {
+    return adjacentMoves[Math.floor(Math.random() * adjacentMoves.length)];
+  }
+
+  // Langkah pertama AI jika papan kosong
+  return emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
+}
+
+function findWinningMove(squares, player) {
+  for (let i = 0; i < 81; i++) {
+    if (!squares[i]) {
+      const squaresCopy = squares.slice();
+      squaresCopy[i] = player;
+      if (calculateWinner(squaresCopy)) return i; // Jika naruh di sini bikin menang, kembalikan index-nya
+    }
+  }
+  return null;
+}
+
+function hasAdjacent(squares, index) {
+  const size = 9;
+  const x = index % size;
+  const y = Math.floor(index / size);
+  
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx; const ny = y + dy;
+      if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+        if (squares[ny * size + nx] !== null) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // --- APP UTAMA ---
 export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [gameMode, setGameMode] = useState('pvp'); // 'pvp' (Player vs Player) atau 'pve' (Player vs AI)
   const [history, setHistory] = useState([Array(81).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  
-  // State untuk menunda Kartu Modal Kemenangan
   const [showModal, setShowModal] = useState(false);
   
   const xIsNext = currentMove % 2 === 0;
@@ -160,7 +214,7 @@ export default function App() {
   const winData = calculateWinner(currentSquares);
   const winner = winData ? winData.winner : null;
 
-  // Jeda Modal Card selama 1.2 Detik untuk memberi waktu animasi garis neon selesai
+  // Efek Jeda Modal Animasi Kemenangan
   useEffect(() => {
     if (winner) {
       const timer = setTimeout(() => setShowModal(true), 1200);
@@ -170,11 +224,32 @@ export default function App() {
     }
   }, [winner]);
 
+  // Efek Menjalankan Giliran AI (Robot)
+  useEffect(() => {
+    if (isPlaying && gameMode === 'pve' && !xIsNext && !winner) {
+      // Jeda waktu biar AI pura-pura mikir (0.6 detik)
+      const timer = setTimeout(() => {
+        const aiMove = getAIMove(currentSquares);
+        if (aiMove !== null) {
+          const nextSquares = currentSquares.slice();
+          nextSquares[aiMove] = 'O'; // O adalah AI
+          handlePlay(nextSquares);
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [xIsNext, isPlaying, gameMode, currentSquares, winner]);
+
   function jumpTo(nextMove) { setCurrentMove(nextMove); setShowModal(false); }
+  
   function handlePlay(nextSquares) {
+    // Kalau lagi main lawan komputer dan bukan giliran kita, jangan bolehin nge-klik
+    if (gameMode === 'pve' && !xIsNext) return; 
+
     const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
     setHistory(nextHistory); setCurrentMove(nextHistory.length - 1);
   }
+  
   function resetGame() { setHistory([Array(81).fill(null)]); setCurrentMove(0); setShowModal(false); }
 
   if (!isPlaying) {
@@ -183,7 +258,16 @@ export default function App() {
         <BackgroundPattern />
         <div className="dashboard-view">
           <h1 className="title-main neon-o-glow">TIC TAC TOE<br/><span className="title-sub neon-x-glow">GES</span></h1>
-          <button className="btn-neon btn-play" onClick={() => setIsPlaying(true)}>PLAY NOW</button>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '30px' }}>
+            <button className="btn-neon" onClick={() => { setGameMode('pve'); setIsPlaying(true); }} style={{ fontSize: '1.5rem', padding: '20px 50px' }}>
+              🤖 PLAY VS AI
+            </button>
+            <button className="btn-neon" onClick={() => { setGameMode('pvp'); setIsPlaying(true); }} style={{ fontSize: '1.2rem', padding: '15px 40px', background: 'transparent' }}>
+              👥 PLAY VS FRIEND
+            </button>
+          </div>
+
         </div>
       </div>
     );
@@ -211,15 +295,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* POPUP MODAL CARD KEMENANGAN (Ditingkatkan di mobile) */}
+      {/* POPUP KEMENANGAN */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <h2 style={{ fontSize: '3.5rem', margin: 0, textTransform: 'uppercase' }} className={winner === 'X' ? 'neon-x-glow' : 'neon-o-glow'}>
-              YOU'RE THE WINNER!
+              {gameMode === 'pve' && winner === 'O' ? 'YOU LOSE!' : 'YOU WIN!'}
             </h2>
             <p style={{ fontSize: '1.5rem', margin: '15px 0' }}>
-              PLAYER <span className={winner === 'X' ? 'neon-x-glow' : 'neon-o-glow'} style={{ fontWeight: 'bold' }}>{winner}</span> HAS WON
+              {gameMode === 'pve' && winner === 'O' ? 'THE AI IS TOO SMART' : `PLAYER `} 
+              {gameMode === 'pve' && winner === 'O' ? '' : <span className={winner === 'X' ? 'neon-x-glow' : 'neon-o-glow'} style={{ fontWeight: 'bold' }}>{winner}</span>}
+              {gameMode === 'pve' && winner === 'O' ? '' : ' HAS WON'}
             </p>
             <BrainHologram />
             <div className="modal-actions">
