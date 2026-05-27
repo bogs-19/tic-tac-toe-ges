@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import './index.css';
+import './index.css'; 
 
 // --- KOMPONEN BACKGROUND (Partikel) ---
 function BackgroundPattern() {
@@ -8,7 +8,7 @@ function BackgroundPattern() {
       id: i, type: i % 2 === 0 ? 'X' : 'O',
       left: `${Math.random() * 100}vw`, top: `${Math.random() * 100}vh`,
       size: `${Math.floor(Math.random() * 25 + 20)}px`,
-      opacity: Math.random() * 0.2 + 0.1,
+      opacity: Math.random() * 0.2 + 0.1, 
       animationDuration: `${15 + Math.random() * 15}s`,
       animationDelay: `-${Math.random() * 10}s`
     }));
@@ -29,21 +29,27 @@ function BackgroundPattern() {
 function BrainHologram() {
   const points = useMemo(() => {
     const pts = [];
-    for (let i = 0; i < 60; i++) {
-      const rx = 140 + Math.random() * 20; const ry = 100 + Math.random() * 15;
+    for(let i=0; i<60; i++) {
+      const rx = 140 + Math.random() * 20;
+      const ry = 100 + Math.random() * 15;
       const angle = Math.random() * Math.PI * 2;
-      pts.push({ x: 250 + Math.cos(angle) * rx, y: 150 + Math.sin(angle) * ry, connectionCount: Math.floor(Math.random() * 2) + 1 });
+      pts.push({
+        x: 250 + Math.cos(angle) * rx, y: 150 + Math.sin(angle) * ry,
+        connectionCount: Math.floor(Math.random() * 2) + 1
+      });
     }
-    for (let i = 0; i < 25; i++) { pts.push({ x: 150 + Math.random() * 200, y: 80 + Math.random() * 140, connectionCount: 3 }); }
+    for(let i=0; i<25; i++) { pts.push({ x: 150 + Math.random() * 200, y: 80 + Math.random() * 140, connectionCount: 3 }); }
     return pts;
   }, []);
 
   const lines = useMemo(() => {
     const lns = [];
-    for (let i = 0; i < points.length; i++) {
-      for (let j = 0; j < points[i].connectionCount; j++) {
-        const target = Math.floor(Math.random() * points.length);
-        if (i !== target) lns.push({ x1: points[i].x, y1: points[i].y, x2: points[target].x, y2: points[target].y });
+    for(let i=0; i<points.length; i++) {
+      const startNode = points[i];
+      for(let j=0; j<startNode.connectionCount; j++) {
+        const targetIndex = Math.floor(Math.random() * points.length);
+        if(i === targetIndex) continue;
+        lns.push({ x1: startNode.x, y1: startNode.y, x2: points[targetIndex].x, y2: points[targetIndex].y });
       }
     }
     return lns;
@@ -51,6 +57,12 @@ function BrainHologram() {
 
   return (
     <svg viewBox="0 0 500 300" className="hologram-svg">
+      <defs>
+        <radialGradient id="glowGradient">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#0fa" stopOpacity="0" />
+        </radialGradient>
+      </defs>
       {lines.map((l, i) => <line key={`l-${i}`} className="hologram-line" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} style={{ animationDelay: `${Math.random() * 2}s` }} />)}
       {points.map((p, i) => <circle key={`p-${i}`} className="hologram-point" cx={p.x} cy={p.y} r="2" style={{ animationDelay: `${Math.random() * 3}s` }} />)}
     </svg>
@@ -81,7 +93,7 @@ function Board({ xIsNext, squares, onPlay }) {
   const winner = winData ? winData.winner : null;
   const winLine = winData ? winData.line : [];
 
-  let status = winner
+  let status = winner 
     ? <span className={winner === 'X' ? 'neon-x-glow' : 'neon-o-glow'}>WINNER: {winner}</span>
     : <span style={{ color: '#ccc' }}>NEXT PLAYER: <span className={xIsNext ? 'neon-x-glow' : 'neon-o-glow'}>{xIsNext ? 'X' : 'O'}</span></span>;
 
@@ -93,36 +105,35 @@ function Board({ xIsNext, squares, onPlay }) {
     }
   }
 
-  // LOGIKA MENGGAMBAR GARIS NEON DENGAN MATEMATIKA CSS VARIABLES
+  // LOGIKA MENGGAMBAR GARIS NEON (Sangat Tergantung CSS Variables)
   let lineStyle = {};
   if (winner && winLine.length === 5) {
     const startX = winLine[0] % 9;
     const startY = Math.floor(winLine[0] / 9);
     const endX = winLine[4] % 9;
     const endY = Math.floor(winLine[4] / 9);
-
+    
     const dx = endX - startX;
     const dy = endY - startY;
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-    // Jika diagonal, panjang garis dikali akar kuadrat 2 (1.414)
+    
     const isDiagonal = Math.abs(dx) === Math.abs(dy);
     const lineLength = isDiagonal ? 'calc(var(--step) * 5.6568 + var(--sq))' : 'calc(var(--step) * 4 + var(--sq))';
 
     lineStyle = {
       top: `calc(var(--pad) + var(--sq) / 2 + var(--step) * ${startY})`,
       left: `calc(var(--pad) + var(--sq) / 2 + var(--step) * ${startX})`,
-      /* Memundurkan titik awal ke ujung kotak agar garis presisi menutup semua blok */
       transform: `translateY(-50%) rotate(${angle}deg) translateX(calc(var(--sq) / -2))`,
       '--line-length': lineLength
     };
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    // PENTING: Gunakan board-container agar status dan papan menyatu dan centered di mobile
+    <div className="board-container">
       <div style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '10px', letterSpacing: '2px' }}>{status}</div>
       {!winner && <div style={{ color: '#888', letterSpacing: '4px', fontSize: '1rem', marginBottom: '15px' }}>GET 5 IN A ROW TO WIN</div>}
-
+      
       <div className="board-flat">
         <div className="board-grid">
           {boardUI}
@@ -140,10 +151,10 @@ export default function App() {
   const [history, setHistory] = useState([Array(81).fill(null)]);
   const [currentMove, setCurrentMove] = useState(0);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-
-  // State untuk menunda kemunculan Kartu Modal Kemenangan
+  
+  // State untuk menunda Kartu Modal Kemenangan
   const [showModal, setShowModal] = useState(false);
-
+  
   const xIsNext = currentMove % 2 === 0;
   const currentSquares = history[currentMove];
   const winData = calculateWinner(currentSquares);
@@ -171,7 +182,7 @@ export default function App() {
       <div className="app-container">
         <BackgroundPattern />
         <div className="dashboard-view">
-          <h1 className="title-main neon-o-glow">TIC TAC TOE<br /><span className="title-sub neon-x-glow">GES</span></h1>
+          <h1 className="title-main neon-o-glow">TIC TAC TOE<br/><span className="title-sub neon-x-glow">GES</span></h1>
           <button className="btn-neon btn-play" onClick={() => setIsPlaying(true)}>PLAY NOW</button>
         </div>
       </div>
@@ -200,7 +211,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* POPUP MODAL CARD KEMENANGAN (Muncul perlahan dari bawah setelah delay) */}
+      {/* POPUP MODAL CARD KEMENANGAN (Ditingkatkan di mobile) */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -212,8 +223,8 @@ export default function App() {
             </p>
             <BrainHologram />
             <div className="modal-actions">
-              <button className="btn-neon" onClick={resetGame}>PLAY AGAIN</button>
-              <button className="btn-neon" style={{ borderColor: '#666', color: '#ccc', boxShadow: 'none' }} onClick={() => { setIsPlaying(false); resetGame(); }}>EXIT</button>
+               <button className="btn-neon" onClick={resetGame}>PLAY AGAIN</button>
+               <button className="btn-neon" style={{ borderColor: '#666', color: '#ccc', boxShadow: 'none' }} onClick={() => { setIsPlaying(false); resetGame(); }}>EXIT</button>
             </div>
           </div>
         </div>
@@ -228,7 +239,7 @@ function calculateWinner(squares) {
   function checkLine(x, y, dx, dy) {
     const first = squares[y * size + x];
     if (!first) return null;
-    const lineIndices = [y * size + x];
+    const lineIndices = [y * size + x]; 
     for (let i = 1; i < winLength; i++) {
       const nx = x + dx * i; const ny = y + dy * i;
       if (nx < 0 || nx >= size || ny < 0 || ny >= size) return null;
@@ -241,7 +252,7 @@ function calculateWinner(squares) {
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       if (squares[y * size + x]) {
-        const winResult = checkLine(x, y, 1, 0) || checkLine(x, y, 0, 1) || checkLine(x, y, 1, 1) || checkLine(x, y, -1, 1);
+        const winResult = checkLine(x, y, 1, 0) || checkLine(x, y, 0, 1) || checkLine(x, y, 1, 1) || checkLine(x, y, -1, 1);  
         if (winResult) return winResult;
       }
     }
